@@ -1,0 +1,21 @@
+<!DOCTYPE aspectj PUBLIC "-//AspectJ//DTD//EN" "http://www.eclipse.org/aspectj/dtd/aspectj.dtd">
+<aspectj>
+
+    <weaver options="-debug -verbose -showWeaveInfo">
+
+        <!-- only weave classes in our application-specific packages -->
+        <!-- <include within="org.fcrepo.server.storage.*"/> -->
+        <include within="org.fcrepo.server.management.*"/>
+        <include within="org.fcrepo.server.storage.*"/>
+
+    </weaver>
+
+    <aspects>
+
+        <!-- weave in just this aspect  -->        
+
+       <aspect name="org.phaidra.apihooks.APIHooksAspect"/>
+
+    </aspects>
+
+  </aspectj>
