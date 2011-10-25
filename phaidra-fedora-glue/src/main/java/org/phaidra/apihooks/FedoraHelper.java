@@ -1,3 +1,6 @@
+/* The contents of this file are subject to the same license and copyright terms
+ * as Fedora Commons (http://fedora-commons.org/).
+ */
 package org.phaidra.apihooks;
 
 import java.util.regex.Pattern;
