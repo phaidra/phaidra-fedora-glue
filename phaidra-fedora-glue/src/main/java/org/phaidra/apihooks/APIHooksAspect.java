@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -15,9 +16,13 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
+import org.fcrepo.common.Constants;
+import org.fcrepo.common.PID;
 import org.fcrepo.server.Context;
 import org.fcrepo.server.Server;
+import org.fcrepo.server.errors.GeneralException;
 import org.fcrepo.server.errors.ModuleInitializationException;
+import org.fcrepo.server.errors.ServerException;
 import org.fcrepo.server.errors.ServerInitializationException;
 import org.fcrepo.server.management.DefaultManagement;
 import org.fcrepo.server.storage.DOManager;
@@ -120,8 +125,8 @@ public class APIHooksAspect {
 
     }
 
-    @Around("addDatastreamHook(context, pid, dsID, altIDs, dsLabel, versionable, MIMEType, formatURI, dsLocation, controlGroup, dsState, checksumType, checksum, logMessage, datastream, addNewVersion)")
-    public Object addDatastreamHook(Context context,
+    @After("addDatastreamHook(context, pid, dsID, altIDs, dsLabel, versionable, MIMEType, formatURI, dsLocation, controlGroup, dsState, checksumType, checksum, logMessage, datastream, addNewVersion)")
+    public void addDatastreamHook(Context context,
                                     String pid,
                                     String dsID,
                                     String[] altIDs,
@@ -137,13 +142,10 @@ public class APIHooksAspect {
                                     String logMessage,
                                     Datastream datastream,
                                     boolean addNewVersion,                                    
-                                    ProceedingJoinPoint thisJoinPoint)
+                                    JoinPoint thisJoinPoint)
             throws Throwable {
 
             logCall();
-    
-            // First let the addDatastream finish.. we cannot use @after advice because we need the DOWriter which is in thisJoinPoint.getThis()
-            Object retVal = thisJoinPoint.proceed();
     
             String hcontent = null;
             if (controlGroup.equals("X")) {
@@ -157,8 +159,7 @@ public class APIHooksAspect {
                             datastream.DSLabel});
     
             if (!hv.startsWith("OK")) throw new APIHooksException(hv);        
-            
-            return retVal;
+
     }
     
     @After("addDatastream(context, pid, dsID, altIDs, dsLabel, versionable, MIMEType, formatURI, dsLocation, controlGroup, dsState, checksumType, checksum, logMessage)")
@@ -239,8 +240,8 @@ public class APIHooksAspect {
 
     }
     
-    @Around("modifyDatastreamByValueHook(context, pid, datastreamId, altIDs, dsLabel, mimeType, formatURI, dsContent, checksumType, checksum, logMessage, lastModifiedDate, datastream, addNewVersion)")
-    public Object modifyDatastreamByValueHook(Context context,
+    @After("modifyDatastreamByValueHook(context, pid, datastreamId, altIDs, dsLabel, mimeType, formatURI, dsContent, checksumType, checksum, logMessage, lastModifiedDate, datastream, addNewVersion)")
+    public void modifyDatastreamByValueHook(Context context,
                                     String pid,
                                     String datastreamId,
                                     String[] altIDs,
@@ -254,13 +255,10 @@ public class APIHooksAspect {
                                     Date lastModifiedDate,
                                     Datastream datastream,
                                     boolean addNewVersion,                                   
-                                    ProceedingJoinPoint thisJoinPoint)
+                                    JoinPoint thisJoinPoint)
             throws Throwable {
 
             logCall();
-    
-            // First let the addDatastream finish.. we cannot use @after advice because we need the DOWriter which is in thisJoinPoint.getThis()
-            Object retVal = thisJoinPoint.proceed();
     
             String hcontent = null;
             if (dsContent != null) {
@@ -278,8 +276,7 @@ public class APIHooksAspect {
                             datastream.DSLabel});
     
             if (!hv.startsWith("OK")) throw new APIHooksException(hv);        
-            
-            return retVal;
+
     }
 
 
@@ -357,6 +354,119 @@ public class APIHooksAspect {
                 throw new APIHooksException(hv);
 
             return thisJoinPoint.proceed();
+    } 
+    
+    @Pointcut("execution(* org.fcrepo.server.management.DefaultManagement.modifyDatastreamByReference(..)) "
+            + "&& args(context, pid, datastreamId, altIDs, dsLabel, mimeType, formatURI, dsLocation, checksumType, checksum, logMessage, lastModifiedDate)"
+            + "&& !within(org.phaidra.apihooks.APIHooksAspect)")
+    public void modifyDatastreamByReference(Context context,
+                                        String pid,
+                                        String datastreamId,
+                                        String[] altIDs,
+                                        String dsLabel,
+                                        String mimeType,
+                                        String formatURI,
+                                        String dsLocation,
+                                        String checksumType,
+                                        String checksum,
+                                        String logMessage,
+                                        Date lastModifiedDate) {
+    }
+    
+    /**
+     * wormhole 
+     */
+    @Pointcut("simpleDOWriterAddDatastream(datastream, addNewVersion) && cflow(modifyDatastreamByReference(context, pid, datastreamId, altIDs, dsLabel, mimeType, formatURI, dsLocation, checksumType, checksum, logMessage, lastModifiedDate))")
+    public void modifyDatastreamByReferenceHook(Context context,
+                                  String pid,
+                                  String datastreamId,
+                                  String[] altIDs,
+                                  String dsLabel,
+                                  String mimeType,
+                                  String formatURI,
+                                  String dsLocation,
+                                  String checksumType,
+                                  String checksum,
+                                  String logMessage,
+                                  Date lastModifiedDate,
+                                  Datastream datastream,
+                                  boolean addNewVersion
+                                  ) {
+
+    }
+    
+    @After("modifyDatastreamByReferenceHook(context, pid, datastreamId, altIDs, dsLabel, mimeType, formatURI, dsLocation, checksumType, checksum, logMessage, lastModifiedDate, datastream, addNewVersion)")
+    public void modifyDatastreamByReferenceHook(Context context,
+                                    String pid,
+                                    String datastreamId,
+                                    String[] altIDs,
+                                    String dsLabel,
+                                    String mimeType,
+                                    String formatURI,
+                                    String dsLocation,
+                                    String checksumType,
+                                    String checksum,
+                                    String logMessage,
+                                    Date lastModifiedDate,
+                                    Datastream datastream,
+                                    boolean addNewVersion,                                   
+                                    JoinPoint thisJoinPoint)
+            throws Throwable {
+
+            logCall();
+    
+            String hv = m_hooks.runHook("modifyDatastreamByReference", (DOWriter) thisJoinPoint.getThis(), context, pid, new Object[] { datastreamId, datastream.DSMIME });
+        
+            if (!hv.startsWith("OK")) throw new APIHooksException(hv);        
+
+    }
+    
+    @Pointcut("execution(void org.fcrepo.server.storage.SimpleDOWriter.purgeRelationship(..)) && !within(org.phaidra.apihooks.APIHooksAspect)")
+    public void simpleDOWriterPurgeRelationship() {
+    }
+    
+    @Pointcut("execution(* org.fcrepo.server.management.DefaultManagement.purgeRelationship(..)) "
+            + "&& args(context, subject, relationship, object, isLiteral, datatype)"
+            + "&& !within(org.phaidra.apihooks.APIHooksAspect)")
+    public void purgeRelationship(Context context,
+                             String subject,
+                             String relationship,
+                             String object,
+                             boolean isLiteral,
+                             String datatype) {
+    }
+    
+    /**
+     * wormhole 
+     */
+    @Pointcut("simpleDOWriterPurgeRelationship() && cflow(purgeRelationship(context, subject, relationship, object, isLiteral, datatype))")
+    public void purgeRelationshipHook(Context context,
+                                      String subject,
+                                      String relationship,
+                                      String object,
+                                      boolean isLiteral,
+                                      String datatype) {
+
+    }
+    
+    @After("purgeRelationshipHook(context, subject, relationship, object, isLiteral, datatype)")
+    public void purgeRelationshipHook(Context context,
+                                        String subject,
+                                        String relationship,
+                                        String object,
+                                        boolean isLiteral,
+                                        String datatype,                              
+                                 JoinPoint thisJoinPoint)
+            throws Throwable {
+
+            logCall();   
+            
+            String pid = FedoraHelper.getSubjectPID(subject);
+            
+            String hv = m_hooks.runHook("purgeRelationship", (DOWriter) thisJoinPoint.getThis(), context, pid, new Object[] { relationship, object, isLiteral, datatype });
+            if(!hv.startsWith("OK"))
+                throw new APIHooksException(hv);
+
     } 
     
 }
