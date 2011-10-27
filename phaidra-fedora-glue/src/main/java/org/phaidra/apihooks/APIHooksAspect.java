@@ -69,11 +69,19 @@ public class APIHooksAspect {
         }
     }
     
-    private void logCall() {
+    private static void logCall(String pid, String datastreamID) {
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        logger.info(stack[2].getMethodName() + " called from "
+        logger.info("[pid = " + pid + " datastreamID = " + datastreamID + "]" + stack[2].getMethodName() + " called from "
                 + stack[3].getClassName() + "." + stack[3].getMethodName()
                 + "(" + stack[3].getLineNumber() + ")");
+    }
+    
+    private static void logCall(String pid) {
+        logCall(pid, "");
+    }
+    
+    private static void logCall() {
+        logCall("","");
     }
     
 
@@ -145,7 +153,7 @@ public class APIHooksAspect {
                                     JoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            logCall(pid, dsID);
     
             String hcontent = null;
             if (controlGroup.equals("X")) {
@@ -177,10 +185,10 @@ public class APIHooksAspect {
                                     String checksumType,
                                     String checksum,
                                     String logMessage,                                    
-                                    ProceedingJoinPoint thisJoinPoint)
+                                    JoinPoint thisJoinPoint)
             throws Throwable {
 
-        logCall();
+        logCall(pid, dsID);
         
         DOWriter w = null;
         
@@ -258,7 +266,7 @@ public class APIHooksAspect {
                                     JoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            logCall(pid, datastreamId);
     
             String hcontent = null;
             if (dsContent != null) {
@@ -297,7 +305,7 @@ public class APIHooksAspect {
                                     JoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            logCall(pid, datastreamId);
             
             // Does this DS exists?
             DOReader r = m_manager.getReader(Server.GLOBAL_CHOICE, context, pid);
@@ -324,30 +332,31 @@ public class APIHooksAspect {
     }
     
     @Pointcut("execution(* org.fcrepo.server.management.DefaultManagement.modifyObject(..)) "
-            + "&& args(context, pid, state, label, ownerId, logMessage)"
+            + "&& args(context, pid, state, label, ownerId, logMessage, lastModifiedDate)"
             + "&& !within(org.phaidra.apihooks.APIHooksAspect)")
-    public void modifyObject(Context context, String pid, String state, String label, String ownerId, String logMessage) {
+    public void modifyObject(Context context, String pid, String state, String label, String ownerId, String logMessage, Date lastModifiedDate) {
     }
     
     /**
      * wormhole 
      */
-    @Pointcut("simpleDOWriterCommit() && cflow(modifyObject(context, pid, state, label, ownerId, logMessage))")
-    public void modifyObjectHook(Context context, String pid, String state, String label, String ownerId, String logMessage) {
+    @Pointcut("simpleDOWriterCommit() && cflow(modifyObject(context, pid, state, label, ownerId, logMessage, lastModifiedDate))")
+    public void modifyObjectHook(Context context, String pid, String state, String label, String ownerId, String logMessage, Date lastModifiedDate) {
 
     }
     
-    @Around("modifyObjectHook(context, pid, state, label, ownerId, logMessage)")
+    @Around("modifyObjectHook(context, pid, state, label, ownerId, logMessage, lastModifiedDate)")
     public Object modifyObjectHook(Context context, 
                                  String pid, 
                                  String state, 
                                  String label, 
                                  String ownerId, 
-                                 String logMessage,                              
+                                 String logMessage,  
+                                 Date lastModifiedDate,
                                  ProceedingJoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            logCall(pid);
     
             String hv = m_hooks.runHook("modifyObject", (DOWriter)thisJoinPoint.getThis(), context, pid, new Object[] { state, label, ownerId });
             if(!hv.startsWith("OK"))
@@ -413,7 +422,7 @@ public class APIHooksAspect {
                                     JoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            logCall(pid, datastreamId);
     
             String hv = m_hooks.runHook("modifyDatastreamByReference", (DOWriter) thisJoinPoint.getThis(), context, pid, new Object[] { datastreamId, datastream.DSMIME });
         

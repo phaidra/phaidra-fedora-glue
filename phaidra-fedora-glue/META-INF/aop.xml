@@ -4,9 +4,11 @@
     <weaver options="-debug -verbose -showWeaveInfo">
 
         <!-- only weave classes in our application-specific packages -->
-        <!-- <include within="org.fcrepo.server.storage.*"/> -->
+        <include within="org.fcrepo.utilities.*"/>
         <include within="org.fcrepo.server.management.*"/>
         <include within="org.fcrepo.server.storage.*"/>
+        <include within="org.fcrepo.server.access.*"/>  
+              
 
     </weaver>
 
@@ -15,6 +17,7 @@
         <!-- weave in just this aspect  -->        
 
        <aspect name="org.phaidra.apihooks.APIHooksAspect"/>
+       <aspect name="org.phaidra.containers.AccessServletHooksAspect"/>
 
     </aspects>
 
