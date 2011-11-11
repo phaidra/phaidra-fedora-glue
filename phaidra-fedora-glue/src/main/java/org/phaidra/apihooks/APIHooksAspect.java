@@ -4,9 +4,11 @@
 package org.phaidra.apihooks;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
+import java.util.Properties;
 import java.util.regex.Pattern;
 
 import org.aspectj.lang.JoinPoint;
@@ -48,8 +50,16 @@ public class APIHooksAspect {
     public APIHooksAspect()
             throws ServerInitializationException, ModuleInitializationException {
     	
-    	//FIXME
-    	fedoraHome = "/opt/phaidra/app/fedora";
+    	// Read properties file.
+        Properties properties = new Properties();
+        try {
+            properties.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("META-INF/phaidra-fedora-glue.properties"));
+            logger.debug("Properties file loaded:" + properties.toString());
+            fedoraHome = properties.getProperty("org.phaidra.fedorahome");
+        } catch (IOException e) {
+            logger.error("Cannot read properties file, using default values.");
+            fedoraHome = "/usr/local/fedora";
+        } 
     	
         m_hooks =
                 (APIHooks) Server
@@ -69,21 +79,20 @@ public class APIHooksAspect {
         }
     }
     
-    private static void logCall(String pid, String datastreamID) {
+    private static void logCall(String pid, String datastreamID, int stackTraceIndex) {
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        logger.info("[pid = " + pid + " datastreamID = " + datastreamID + "]" + stack[2].getMethodName() + " called from "
-                + stack[3].getClassName() + "." + stack[3].getMethodName()
-                + "(" + stack[3].getLineNumber() + ")");
+        logger.debug("[pid = " + pid + " datastreamID = " + datastreamID + "] " + stack[stackTraceIndex].getClassName() + "." + stack[stackTraceIndex].getMethodName() + " called from "
+                + stack[stackTraceIndex+1].getClassName() + "." + stack[stackTraceIndex+1].getMethodName()
+                + "(" + stack[stackTraceIndex+1].getLineNumber() + ")");
+    }
+    
+    private static void logCall(String pid, String datastreamID) {
+        logCall(pid, datastreamID, 4);
     }
     
     private static void logCall(String pid) {
-        logCall(pid, "");
-    }
-    
-    private static void logCall() {
-        logCall("","");
-    }
-    
+        logCall(pid, "", 4);
+    }   
 
     @Pointcut("execution(void org.fcrepo.server.storage.SimpleDOWriter.addDatastream(..)) && args(datastream, addNewVersion) && !within(org.phaidra.apihooks.APIHooksAspect)")
     public void simpleDOWriterAddDatastream(Datastream datastream,
@@ -430,7 +439,7 @@ public class APIHooksAspect {
 
     }
     
-    @Pointcut("execution(void org.fcrepo.server.storage.SimpleDOWriter.purgeRelationship(..)) && !within(org.phaidra.apihooks.APIHooksAspect)")
+    @Pointcut("execution(boolean org.fcrepo.server.storage.SimpleDOWriter.purgeRelationship(..)) && !within(org.phaidra.apihooks.APIHooksAspect)")
     public void simpleDOWriterPurgeRelationship() {
     }
     
@@ -468,7 +477,7 @@ public class APIHooksAspect {
                                  JoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();   
+            logCall(subject, "");   
             
             String pid = FedoraHelper.getSubjectPID(subject);
             

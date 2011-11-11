@@ -3,39 +3,15 @@
  */
 package org.phaidra.containers;
 
-import java.io.File;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
-import java.util.regex.Pattern;
-
-import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
-import org.fcrepo.common.Constants;
-import org.fcrepo.common.PID;
 import org.fcrepo.server.Context;
-import org.fcrepo.server.Server;
-import org.fcrepo.server.errors.GeneralException;
-import org.fcrepo.server.errors.ModuleInitializationException;
-import org.fcrepo.server.errors.ServerException;
-import org.fcrepo.server.errors.ServerInitializationException;
-import org.fcrepo.server.management.DefaultManagement;
-import org.fcrepo.server.storage.DOManager;
-import org.fcrepo.server.storage.DOReader;
-import org.fcrepo.server.storage.DOWriter;
-import org.fcrepo.server.storage.types.Datastream;
-import org.fcrepo.server.storage.types.DatastreamXMLMetadata;
 import org.fcrepo.server.storage.types.Property;
-import org.fcrepo.utilities.DateUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Date;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -50,19 +26,10 @@ public class AccessServletHooksAspect {
     private static void logCall(String pid, int stackIndex) {
         
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        logger.info("[pid = "+ pid +"]" + stack[stackIndex].getMethodName() + " called from "
+        logger.debug("[pid = "+ pid +"]" + stack[stackIndex].getMethodName() + " called from "
                 + stack[stackIndex+1].getClassName() + "." + stack[stackIndex+1].getMethodName()
                 + "(" + stack[stackIndex+1].getLineNumber() + ")");
     }
-    
-    private static void logCall(String pid) {
-        logCall("", 4);
-    }
-    
-    private static void logCall() {
-        logCall("", 4);
-    }
-    
 
     @Pointcut("execution(* org.fcrepo.utilities.DateUtility.parseDateStrict(..)) && args(dateString)")
     public void parseDateStrict(String dateString) {
@@ -72,7 +39,8 @@ public class AccessServletHooksAspect {
     public Object parseDateStrictHook(String dateString, ProceedingJoinPoint thisJoinPoint)
             throws Throwable {
 
-            logCall();
+            StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+            logger.trace(stack[2].getClassName() + "." + stack[2].getMethodName() + " called from "+ stack[3].getClassName() + "." + stack[3].getMethodName() + "(" + stack[3].getLineNumber() + ")");
     
             if (dateString.indexOf(":") == -1) {
                 dateStringStorage.set(dateString);
@@ -112,7 +80,8 @@ public class AccessServletHooksAspect {
                                     ProceedingJoinPoint thisJoinPoint)
             throws Throwable {
 
-        logCall(PID);
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        logger.debug("[pid = "+ PID +"] " + stack[2].getClassName() + "." + stack[2].getMethodName() + " called from "+ stack[3].getClassName() + "." + stack[3].getMethodName() + "(" + stack[3].getLineNumber() + ")");
         
         String dateString = dateStringStorage.get();
               

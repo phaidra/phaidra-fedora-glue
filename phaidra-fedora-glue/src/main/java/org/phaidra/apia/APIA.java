@@ -1,19 +1,28 @@
 /* The contents of this file are subject to the same license and copyright terms
  * as Fedora Commons (http://fedora-commons.org/).
  */
-package org.phaidra.gsearch;
+package org.phaidra.apia;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.StringReader;
 import java.rmi.RemoteException;
+import java.util.Map;
+import java.util.Properties;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.axis.MessageContext;
 import org.apache.axis.client.Call;
 import org.apache.axis.client.Service;
+import org.apache.axis.transport.http.HTTPConstants;
+import org.fcrepo.common.Constants;
 import org.fcrepo.server.Context;
+import org.fcrepo.server.MultiValueMap;
 import org.fcrepo.server.Parameterized;
 import org.fcrepo.server.ReadOnlyContext;
 import org.fcrepo.server.Server;
@@ -24,6 +33,7 @@ import org.fcrepo.server.errors.ServerInitializationException;
 import org.fcrepo.server.errors.authorization.AuthzDeniedException;
 import org.fcrepo.server.errors.authorization.AuthzException;
 import org.fcrepo.server.security.Authorization;
+import org.fcrepo.server.security.servletfilters.ExtendedHttpServletRequest;
 import org.fcrepo.server.utilities.AxisUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,40 +47,51 @@ import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.InputSource;
         
-public class PFindObjects {
+public class APIA {
     
-    private static final Logger logger = LoggerFactory.getLogger(PFindObjects.class);
+    private static final Logger logger = LoggerFactory.getLogger(APIA.class);
        
     private static String fedoraHome;
     
     private Authorization m_authorizationModule;
     
-    public PFindObjects() throws ServerInitializationException, ModuleInitializationException{
+    public APIA() throws ServerInitializationException, ModuleInitializationException{
         
-        //FIXME
-        fedoraHome = "/opt/phaidra/app/fedora";
+        // Read properties file.
+        Properties properties = new Properties();
+        try {
+            properties.load(Thread.currentThread().getContextClassLoader().getResourceAsStream("META-INF/phaidra-fedora-glue.properties"));
+            logger.debug("Properties file loaded:" + properties.toString());
+            fedoraHome = properties.getProperty("org.phaidra.fedorahome");         
+        } catch (IOException e) {
+            logger.error("Cannot read properties file, using default values.");
+            fedoraHome = "/usr/local/fedora";
+        }                        
         
-        logger.debug("PFindObjects ctor");
+        logger.debug(APIA.class + " ctor");
         
         m_authorizationModule =
                 (Authorization) Server
                         .getInstance(new File(fedoraHome))
                         .getModule("org.fcrepo.server.security.Authorization");
         if (m_authorizationModule == null) {
-            throw new ModuleInitializationException("Can't get Authorization module from Server.getModule (in PFindObjectsImpl)",
+            throw new ModuleInitializationException("Can't get Authorization module from Server.getModule (in "+ APIA.class +")",
                                                     "org.fcrepo.server.security.Authorization");
         }
     }
     
-    public String findObjectsAndRights(String query, int hitPageStart, int hitPageSize, int snippetsMax, int fieldMaxLength, String indexName) throws RemoteException {
-        Context context=ReadOnlyContext.getSoapContext();
-            try {
-                logger.debug("findObjectsAndRights");
-                return findObjectsAndRights(context, query, hitPageStart, hitPageSize, snippetsMax, fieldMaxLength, indexName);
-            } catch (Throwable th) {
-                logger.error("Error finding objects", th);
-                throw AxisUtility.getFault(th);
-            }
+    public String pfindObjects(String query, int hitPageStart, int hitPageSize, int snippetsMax, int fieldMaxLength, String indexName) throws RemoteException {
+
+        MessageContext mctx = MessageContext.getCurrentContext();
+        HttpServletRequest req = (HttpServletRequest) mctx.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST);
+        Context context = ReadOnlyContext.getContext(Constants.HTTP_REQUEST.REST.uri, req);
+        try {
+            logger.debug("findObjectsAndRights");                
+            return pfindObjects(context, query, hitPageStart, hitPageSize, snippetsMax, fieldMaxLength, indexName);
+        } catch (Throwable th) {
+            logger.error("Error finding objects", th);
+            throw AxisUtility.getFault(th);
+        }
     }  
     
     /**
@@ -84,12 +105,13 @@ public class PFindObjects {
      * 
      * Siehe https://ylvi.univie.ac.at/confluence/display/swdevel/Phaidra+pfindObjects
      */
-    public String findObjectsAndRights(Context context,
+    public String pfindObjects(Context context,
             String query, int hitPageStart, int hitPageSize, int snippetsMax,
             int fieldMaxLength, String indexName)
             throws ServerException
     {
         logger.debug("findObjectsAndRights");
+        logger.debug("query:"+query);
 
         // Suchanfrage an gsearch schicken
         String gsearchxml = null;
@@ -196,6 +218,9 @@ public class PFindObjects {
           // fertig
           return gsearchxml;
     }
+    
+    
+  
 }
 
     
